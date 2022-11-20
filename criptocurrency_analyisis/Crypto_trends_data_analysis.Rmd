@@ -1,0 +1,228 @@
+---
+title: "Cryptocurrency Web Trends and Market Price"
+author: "Alfredo Muñoz Gutierrez"
+date: "2022-11-12"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Introduction
+On this project I analyzed the relation between the market price of the
+top cryptocurrencys and the Web searches for crypto terms. In order to do the 
+analysis I got price data of **Bitcoin and Ethereum** from Yahoo Finance website 
+and **Google trends** data about keywords related with the crypto ecosystem. 
+The main goal of this analysis was find out if there is a positive correlation 
+between cryptocurrencys price and Google searches of crypto-related words, 
+in case it is true, if an increase in **cryptocurrencys price** is related to a 
+**high volume of searches** in the web for crypto terms or if the increase of 
+web searches influence the cryptocurrencys price. Other objectives were spot 
+the locations with most interest in the crypto terms as well as if there are any 
+correlation between Bitcoin and Ethereum price.
+
+### Objetives
+#### Answer the following questions:
+
+1. ¿What is the relation between cryptocurrencys market price and Google
+trends of crypto terms? ¿Is one variable causing the other to change?
+
+2. ¿Wich locations have most interest in search for crypto terms?
+
+3. ¿Is there a correlation between Bitcoin and Ethereum price?
+
+
+## Data Collection, Cleaning and Exploration
+The first step was to load the librarys `gtrendsR` to get the Google trends data
+and `tidyverse` to clean, tidy and plot the data in order to answer the
+analysis' questions. The market price data was imported from csv files.
+```{r, warning=FALSE}
+library(gtrendsR)
+library(tidyverse)
+setwd("~/R/Codecademy-Capstone Project Exploring Google Trends Data/Data")
+#import Bitcoin and Ethereum price data to data frames
+btc_data <- read_csv("BTC-USD.csv",show_col_types = FALSE)
+eth_data <- read_csv("ETH-USD.csv", show_col_types = FALSE)
+```
+
+Then the `btc_data` dataframe was cleaned and the Bitcoin and Ethereum market 
+prices were plotted (data from the last 5 years).
+
+```{r}
+#Convert date column to date type
+btc_data <- btc_data %>% 
+  mutate(Date = as.Date(Date,"%d/%m/%Y"))
+
+#Plot Bitcoin price from the last 5 years
+ggplot(btc_data) + geom_line(aes(Date,Close), color="#00BA38") +
+  labs(title="Bitcoin Market Price",
+       caption="Data from Yahoo Finance", x=NULL, y="Market price") +
+  scale_y_continuous(label = function(x) paste0('$', x))
+
+```
+
+```{r}
+#Plot Ethereum price from the last 5 years
+ggplot(eth_data) + geom_line(aes(Date,Close), color="#619CFF") +
+  labs(title="Ethereum Market Price",
+       caption="Data from Yahoo Finance", x=NULL, y="Market price") +
+  scale_y_continuous(label = function(x) paste0('$', x))
+```
+
+With the `gtrends` function the popularity over time for the crypto words was 
+gotten and after cleaning the data I plotted the results for each keyword.
+
+```{r}
+#Get Google trends data about crypto keywords from the last 5 years
+crypto_trends <- gtrends(c("cryptocurrency", "blockchain", "NFT"))
+crypto_trends_over_time <- crypto_trends$interest_over_time
+
+#Change the "<1" values in "hits" column to 0 and convert to numeric data type
+crypto_trends_over_time$hits[crypto_trends_over_time$hits == "<1"] <- "0"
+crypto_trends_over_time <- crypto_trends_over_time %>% 
+  mutate(hits=as.numeric(hits))
+
+#Plot trends linear graph
+ggplot(crypto_trends_over_time, aes(date, hits, color=keyword)) +
+  geom_line() +
+  scale_color_discrete(name = "Crypto Terms") + 
+  labs(title = "Google Trend Data For Crypto Terms",
+       x=NULL, y = "Hits (Normalized to be between 0 and 100)")
+```
+We can see that there was three peaks for "cryptocurrency" searches, first in
+early 2018, and the other two in 2021. For "blockchain" the trend is 
+similar but is far less popular. "NFT" searches were almost 0 before 2021, 
+then it starts to increase until it reaches the top value of 100 in the 
+beginning of 2022 (meaning that this was the most searched word in that moment)
+but after this peak it starts to suddenly decrease until it reaches around a 
+value of 20.
+
+## Crypto Popularity in the World
+In order to find what are the places with most interest in search for crypto
+terms I use the *interest_by_country* dataframe from the Google trends data
+wich has the popularity data for each country. Then I order and filter the 
+dataset to get the top 10 countries with most interest in "cryptocurrency"
+and "NFT" keywords.
+
+```{r}
+#Get top 10 countries with most "cryptocurrency" searches popularity
+crypto_trends_countries <- crypto_trends$interest_by_country 
+cryptocurrency_countries <- crypto_trends_countries %>% 
+  filter(keyword=="cryptocurrency") %>% 
+  arrange(-hits) %>% 
+  head(10)
+
+#Plot top 10 countries for "cryptocurrency" 
+ggplot(cryptocurrency_countries, aes(x=hits, 
+      y=forcats::fct_reorder(location, hits))) + geom_col(fill="#00BA38") +
+  labs(title="Top 10 countries most Interested in Cryptocurrency Keyword",
+       x= "Hits (Normalized to be between 0 and 100)" , y=NULL)
+
+```
+Besides being a underdeveloped country **Nigeria** is the place with most
+interest in search "cryptocurrency" in Google then this could be a opportunity
+for crypto exchanges or another crypto-related business to approach and expand
+to this market. 
+
+
+```{r}
+#Get top 10 countries with most "NFT" searches popularity
+NFT_countries <- crypto_trends_countries %>% 
+  filter(keyword=="NFT") %>% 
+  arrange(-hits) %>% 
+  head(10)
+
+#Plot 10 countries for "NFT"
+ggplot(NFT_countries, aes(x=hits, 
+      y=forcats::fct_reorder(location, hits))) + geom_col(fill="#619CFF") +
+  labs(title="Top 10 countries most Interested in NFT Keyword",
+       x= "Hits (Normalized to be between 0 and 100)" , y=NULL)
+```
+
+With 6 of the 10 top countries being from Asia there is no doubt that this is 
+the region most interested in NFTs then a  NFT related company that has intentions 
+to expand to new markets **China** is the best stake but **Nigeria** is a good
+option too due to it is the 4th country most interested in NFTs and the most
+interested in cryptocurrencys.
+
+## Price Data vs Trends Data
+To be able to answer the main question of the analysis I combine the market 
+price and Google trends data adjusting the scale to have a good view of the 
+correlation between the variables. Since Bitcoin is the top cryptocurrency in
+the market and the most popular I compare its price with the popularity of
+"cryptocurrency" keyword and due to Ethereum blockchain is the most used to
+buy and sell NFTs I compare the Ethereum price with the "NFT" keyword.
+
+```{r}
+#Plot price and trends together for Bitcoin and cryptocurrency 
+ggplot() + geom_line(btc_data, mapping = aes(Date, Close, 
+  color = "Bitcoin Price")) + geom_line(filter(crypto_trends_over_time, 
+  keyword == "cryptocurrency"), mapping = aes(as.Date(date), hits*1200,
+  color = "Cryptocurrency Google Trends Hits")) +
+  scale_y_continuous(name = "Price", sec.axis = sec_axis(~./1200,
+  name="Google Trends Hits")) + 
+  labs(title = "Bitcoin Price and Cryptocurrency Google Trends", x=NULL)
+
+```
+We can see that in some time periods there is acorrelation between Bitcoin price and 
+"cryptocurrency" web searches since when there is a increase in one the other 
+increase too but this not happens always. In early 2021 there is a suddenly 
+increase in both variables then the market price kept increasing while the 
+"cryptocurrency" popularity decrease but when the market price reaches a peak
+the web searches suddenly increase reaching a peak at the same time.
+
+```{r}
+#Plot price and trends together for Ethereum and NFT 
+ggplot() + geom_line(eth_data, mapping = aes(Date, Close, 
+  color = "Ethereum Price")) + geom_line(filter(crypto_trends_over_time, 
+  keyword == "NFT"), mapping = aes(as.Date(date), hits*50,
+  color = "NFT Google Trends Hits")) +
+  scale_y_continuous(name = "Price", sec.axis = sec_axis(~./50,
+  name="Google Trends Hits")) + 
+  labs(title = "Ethereum Price and NFT Google Trends", x=NULL)
+```
+
+Similar to the last graph it seems like the Ethereum price increase when the
+"NFT" searches does it perhaps a decrease in the web searches does not affect
+
+## Price correlation
+Bitcoin and Ethereum seems to be very dependent on the crypto popularity and 
+they also look like them prices have a similar trend. I made a scatter plot of
+the prices for both cryptocurrencys with a trend line and the calculated linear
+regression to see if there is a strong correlation.
+```{r warning=FALSE}
+#Merge Bitcoin and Ethereum price
+crypto_price <- btc_data %>% 
+  inner_join(eth_data, by="Date") %>% 
+  select(Date,Close.x, Close.y )
+
+#Plot Bitcoin and Ethereum price correlation
+ggplot(crypto_price, aes(Close.x,Close.y)) + geom_point() +
+  geom_smooth(method= "lm") +
+  geom_smooth(se = FALSE, color = "green") +
+  labs(title="Bitcoin vs Ethereum Price", 
+       x="Bitcoin Price", y="Ethereum Price") +
+  scale_y_continuous(label = function(x) paste0('$', x)) +
+  scale_x_continuous(label = function(x) paste0("$", x))
+```
+It looks like there are a positive correlation between the Bitcoin and Ethereum
+prices but there some points that does not have the same trend making the trend
+line differ from the trend line obtain from the linear regression method.
+Possibly if other variables as the date were included in the model better 
+results could be achieved.
+
+## Conclusion and Further Steps
+In the analysis we explore the effects of crypto terms web popularity in the 
+market price of Bitcoin and Ethereum. I can argue that indeed there are a **strong
+correlation between this variables** despite they don't follow the same trend
+sometimes, **in the long-term if there is a increase in the cryptocurrencys price 
+the web searches for crypto terms will increase too**.
+
+However, I cannot say that this statement applies to all the cryptocurrencys or 
+that the market price is the only cause for the increase in web popularity for 
+crypto terms due to the limitations of the data I worked with. If **more crypto
+currencys prices** were included and data about other market assets (like the 
+**S&P500**) that reflects better the global market situation a more detalled 
+and accurate analysis could be maded.
+
+
+
